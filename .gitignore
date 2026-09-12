@@ -1,0 +1,22 @@
+# Environment variables / Secrets (CRITICAL)
+.env
+.env.local
+*.env
+
+# Python / Virtual Environment (if using Python)
+__pycache__/
+*.pyc
+venv/
+.venv/
+env/
+
+# Node.js (if using JS/Node)
+node_modules/
+dist/
+.next/
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
