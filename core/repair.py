@@ -1,38 +1,46 @@
 from core.validator import deterministic_validate
-from core.generator import generate_script
 
 
-def repair_if_needed(llm, script, context, plan, grade, duration, style,
-                     instructions, required_concepts, max_attempts=1):
+def repair_if_needed(llm, script, context, plan, grade, duration, style, instructions, required_concepts, max_attempts=1):
     history = []
     current = script
     for attempt in range(max_attempts + 1):
-        validation = deterministic_validate(current, duration, required_concepts)
+        validation = deterministic_validate(current, duration, required_concepts, grade)
         history.append(validation)
-        if validation["valid_schema"] and not validation["errors"] and not validation["warnings"]:
+        hard_fail = bool(validation["errors"])
+        important_warn = any(
+            phrase in " ".join(validation["warnings"]).lower()
+            for phrase in ("missing concepts", "timeline", "narration is", "placeholder")
+        )
+        if not hard_fail and not important_warn:
             return current, history
         if attempt == max_attempts:
             return current, history
 
         repair_prompt = f"""
-Repair the following educational video script.
-Keep all supported content grounded in the lesson evidence.
-Fix ONLY the issues identified by validation.
-Do not add unsupported facts.
-Target duration: {duration} minutes.
-Grade: {grade}.
-Animation style: {style}.
+Repair this educational video script using ONLY the supplied lesson evidence.
+Do not add unsupported facts. Preserve all correct content.
+
+GRADE: {grade}
+TARGET DURATION: {duration} minutes
+TARGET WORDS: {validation.get('target_word_count')}
+STYLE: {style}
 
 VALIDATION:
 {validation}
+
+REQUIRED CONCEPTS:
+{required_concepts[:18]}
 
 SCRIPT:
 {current}
 
 LESSON EVIDENCE:
-{context[:10000]}
+{context}
 
-Return only the corrected JSON using the same scene schema.
+Fix the validation issues, especially duration/word-count alignment, missing
+required concepts, contiguous time ranges, and placeholder OTS/SFX.
+Return ONLY the corrected JSON with the same scene schema.
 """
         current = llm.generate_json(repair_prompt)
     return current, history

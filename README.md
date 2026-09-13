@@ -5,148 +5,94 @@ A local Streamlit prototype for the AVGC Studio internship assessment.
 ## What it does
 
 PDF → extraction → content filtering → concept extraction → lightweight retrieval
-→ multi-stage AI planning → script generation → validation → repair → evaluation.
+→ adaptive AI generation → validation → optional repair → evaluation.
 
 The generated result is shown as:
 
 **Time | Visual / Animation | Voice-over / Dialogue | OTS / SFX**
 
+## Adaptive model strategy
+
+The application is model-agnostic and automatically selects a performance profile from the configured Ollama model name.
+
+### Low-RAM / development mode
+
+Examples: `qwen2.5:1.5b`, `qwen2.5:3b`
+
+- Compact lesson context
+- No separate planning LLM call
+- Lower context/output limits
+- Long cold-start timeout for slow laptops
+- One validation/repair pass only when needed
+- Ollama `keep_alive` keeps the model warm for subsequent requests
+
+### Quality mode
+
+Examples: `llama3.1:8b` or another larger instruction model
+
+- Larger lesson context
+- Separate planning + generation stages
+- Larger context/output limits
+- One repair pass only when validation identifies important issues
+
+This means the same codebase can be tested on a low-end laptop and later deployed with a stronger model without rewriting the pipeline.
+
+## Python compatibility
+
+The project supports **Python 3.9+**. It intentionally avoids Python 3.10-only union type syntax such as `dict | None`.
+
 ## Stack
 
-- Python 3.11+
+- Python 3.9+
 - Streamlit
 - PyMuPDF
 - Ollama (local LLM)
 - Pydantic
-- Lightweight keyword/TF-IDF-style retrieval foundation
-- Python deterministic validation
+- python-dotenv
+- Lightweight keyword retrieval foundation
+- Deterministic validation/evaluation
 
-## Setup
+## Setup (Windows)
 
-### 1. Create a virtual environment
-
-Windows:
-
-```powershell
-py -3.11 -m venv .venv
+```bat
+python -m venv .venv
 .venv\Scripts\activate
-```
-
-macOS/Linux:
-
-```bash
-python3.11 -m venv .venv
-source .venv/bin/activate
-```
-
-### 2. Install dependencies
-
-```bash
 pip install -r requirements.txt
 ```
 
-### 3. Install Ollama
+Create `.env` from `.env.example` and configure:
 
-Install Ollama from its official installer, then pull a local instruction model.
-
-For a low-RAM development laptop, use a small model:
-
-```bash
-ollama pull qwen2.5:1.5b
+```env
+MODEL_NAME=qwen2.5:1.5b
+OLLAMA_BASE_URL=http://127.0.0.1:11434
 ```
 
-For a stronger machine/final deployment, you can use:
+For final testing/deployment on a stronger machine, change only the model:
 
-```bash
-ollama pull llama3.1:8b
+```env
+MODEL_NAME=llama3.1:8b
 ```
 
-Make sure Ollama is running.
+Pull the selected model with Ollama, make sure Ollama is running, then:
 
-### Adaptive performance mode
-
-The app uses `PERFORMANCE_MODE=auto` by default. It detects the configured
-model size from its name and changes the workflow automatically:
-
-- **<= 4B models:** fast mode — one generation call, smaller context/output
-  limits, and no expensive repair LLM call. This is intended for low-RAM
-  development machines.
-- **> 4B models:** quality mode — planning + generation and one repair attempt
-  when validation requires it. This is intended for stronger machines.
-
-You can override this with `PERFORMANCE_MODE=fast` or
-`PERFORMANCE_MODE=quality`. The model remains configurable through
-`MODEL_NAME`; no application code needs to change when switching models.
-
-The Ollama adapter also uses a long cold-start timeout, one retry, and a short
-`keep_alive` period so the first request can load a model without being
-incorrectly reported as a connection failure.
-
-### 4. Run
-
-```bash
+```bat
 streamlit run app.py
 ```
 
-## Architecture
-
-```text
-PDF Upload
-   ↓
-PyMuPDF Extraction
-   ↓
-Content Classification
-   ↓
-Concept Extraction
-   ↓
-Relevant Content Retrieval
-   ↓
-AI Planning
-   ↓
-AI Script Generation
-   ↓
-Schema + Duration + Coverage Validation
-   ↓
-Repair Loop (max 2)
-   ↓
-Evaluation
-   ↓
-Final 4-column Script
-```
-
-## Reliability choices
+## Reliability / grounding choices
 
 1. The PDF is processed before generation.
-2. Activities/exercises/answer keys are filtered from the primary generation context.
-3. Concepts are extracted before script generation.
-4. Retrieval limits the evidence sent to the generator.
-5. Generation is structured JSON and validated with Pydantic.
-6. Duration and word-count checks are deterministic.
-7. Concept coverage is checked.
-8. A repair loop is used when validation fails.
-9. Evaluation is separate from generation.
-10. The LLM provider is abstracted so the model can be replaced.
+2. Activities/exercises/answer keys are filtered from primary teaching context.
+3. Concepts are extracted before generation.
+4. Retrieval limits the evidence sent to the model.
+5. Required concepts and their source evidence are explicitly passed to generation.
+6. The model receives a target narration word budget based on grade and duration.
+7. The output is structured JSON and validated with Pydantic.
+8. Timeline, narration duration, concept coverage, scene continuity, and OTS/SFX placeholders are checked deterministically.
+9. A repair call is used only when important validation issues remain.
+10. Evaluation scores reflect actual validation failures rather than always awarding high scores.
+11. The LLM provider is abstracted so the model can be replaced.
 
-## Important prototype limitation
+## Current prototype limitations
 
-The current grounding check is intentionally lightweight. A production system
-should add claim-level evidence matching (for example, embedding retrieval and
-NLI/LLM claim verification), better scanned-PDF OCR, stronger semantic activity
-classification, and a more rigorous grade-level language evaluator.
-
-## Paid API policy
-
-The default prototype uses a local Ollama model, so there is no per-script API
-cost. If an external model adapter is added, document model choice, token usage,
-and estimated cost per generated script.
-
-## Demo flow
-
-1. Start Ollama.
-2. Start Streamlit.
-3. Upload the supplied lesson PDF.
-4. Select grade, duration, 2D/3D, and topic/page if needed.
-5. Generate.
-6. Show the pipeline metadata.
-7. Show the four-column script.
-8. Show evaluation scores and any repair/validation history.
+The grounding check is deterministic and lightweight. A production version should add claim-level evidence matching, embedding retrieval, OCR for scanned PDFs, stronger semantic activity classification, and a more rigorous grade-level language evaluator.

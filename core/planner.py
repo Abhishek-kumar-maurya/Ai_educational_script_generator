@@ -2,17 +2,14 @@ from llm.base import LLMProvider
 
 
 def build_plan(llm: LLMProvider, context: str, grade: str, duration: float, style: str, instructions: str) -> dict:
-    # Keep prompts compact because this stage is intentionally optional on
-    # constrained hardware. It is still available in quality mode.
-    context = context[:10000]
     prompt = f"""
 You are the planning stage of an educational video script system.
-Create a concise scene plan using ONLY the supplied lesson evidence.
+Create a concise connected scene plan using ONLY the supplied lesson evidence.
 
 GRADE: {grade}
 TARGET MINUTES: {duration}
 ANIMATION STYLE: {style}
-ADDITIONAL INSTRUCTIONS: {instructions or "None"}
+ADDITIONAL INSTRUCTIONS: {instructions or 'None'}
 
 LESSON EVIDENCE:
 {context}
