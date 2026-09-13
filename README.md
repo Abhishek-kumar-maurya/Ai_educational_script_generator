@@ -64,7 +64,7 @@ Create `.env` from `.env.example` and configure:
 
 ```env
 MODEL_NAME=qwen2.5:1.5b
-OLLAMA_BASE_URL=http://127.0.0.1:11434
+OLLAMA_BASE_URL=http://localhost:11434
 ```
 
 For final testing/deployment on a stronger machine, change only the model:
